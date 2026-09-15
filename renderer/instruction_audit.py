@@ -111,6 +111,13 @@ def _span(item: dict, key: str) -> str:
     return f"{start}–{end}"
 
 
+def _rule_span(asset: AssetAudit, index: object) -> str:
+    """Span of the rule that a finding names only by index."""
+    if isinstance(index, int) and 0 <= index < len(asset.rules):
+        return _span(asset.rules[index], "span")
+    return "—"
+
+
 def _headline(asset: AssetAudit) -> str:
     """One line saying what was actually found, in evidence terms."""
     if asset.status == "unknown":
@@ -187,7 +194,10 @@ def _render_asset(asset: AssetAudit) -> list[str]:
         lines.append("**Priority conflicts** — both rules fire, nothing says which wins.\n")
         shown = asset.priority_ambiguities[:MAX_ROWS_PER_FAMILY]
         for p in shown:
-            lines.append(f"- {_text(p.get('description', ''))}")
+            indices = p.get("rule_indices", [])
+            rules = " ↔ ".join(f"`[{i}]`" for i in indices)
+            spans = ", ".join(_rule_span(asset, i) for i in indices)
+            lines.append(f"- {rules} ({spans}) {_text(p.get('description', ''))}")
             scenario = p.get("scenario")
             if scenario:
                 lines.append(f"  - _{_text(scenario)}_")
@@ -236,10 +246,14 @@ def _render_asset(asset: AssetAudit) -> list[str]:
 def render_instruction_audit_section(profile: BotProfile) -> str:
     """Render `## Instruction Audit (static)`. Always returns a section when
     the bot has instruction text, so a clean result is visibly clean rather
-    than indistinguishable from a section that silently did not run."""
+    than indistinguishable from a section that silently did not run. The
+    one exception is the documented off switch, which skips it entirely."""
     report = audit_instructions(profile)
 
-    if not report.ran:
+    if not report.enabled:
+        return ""
+
+    if not report.available:
         return "\n".join(
             [
                 "## Instruction Audit (static)\n",

@@ -93,6 +93,9 @@ class AssetAudit(BaseModel):
     meta_paradoxes: list[dict] = Field(default_factory=list)
     absoluteness_issues: list[dict] = Field(default_factory=list)
     gaps: list[dict] = Field(default_factory=list)
+    #: rule-audit's parsed rules, verbatim. Priority-conflict findings name
+    #: rules only by index into this list, so it is kept to resolve their spans.
+    rules: list[dict] = Field(default_factory=list)
     note: str = ""
     #: Other assets with byte-identical text, audited once and reported here.
     also_used_by: list[str] = Field(default_factory=list)
@@ -280,6 +283,7 @@ def _audit_text(asset: InstructionAsset) -> AssetAudit:
         meta_paradoxes=data.get("meta_paradoxes", []),
         absoluteness_issues=data.get("absoluteness_issues", []),
         gaps=data.get("gaps", []),
+        rules=data.get("rules", []),
         note=(
             "rule-audit parsed no rules from this text, so nothing was checked."
             + ("" if inline else " The coverage gaps below are reported against an empty rule set.")

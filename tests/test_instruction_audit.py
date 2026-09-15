@@ -117,6 +117,7 @@ def test_findings_are_rule_audits_verbatim(hr_profile: BotProfile) -> None:
     assert asset.meta_paradoxes == expected["meta_paradoxes"]
     assert asset.absoluteness_issues == expected["absoluteness_issues"]
     assert asset.gaps == expected["gaps"]
+    assert asset.rules == expected["rules"]
 
 
 def test_status_uses_rule_audits_severity_map() -> None:
@@ -176,6 +177,24 @@ def test_evidence_spans_survive_into_the_rendered_section(hr_profile: BotProfile
 
     assert f"{span['start']}–{span['end']}" in section
     assert contradiction["rule_a_text"] in section
+
+
+def test_priority_conflict_rows_name_the_rules_and_their_spans() -> None:
+    """rule-audit reports a priority conflict only by `rule_indices`; the row
+    must resolve those to the rule numbers and spans so the reader can find
+    the two rules that collide."""
+    profile = _profile_with(gpt_info=GptInfo(display_name="x", instructions=CONFLICTING))
+    asset = audit_instructions(profile).assets[0]
+    section = render_instruction_audit_section(profile)
+
+    assert asset.priority_ambiguities, "precondition: this prompt has a priority conflict"
+    conflict = asset.priority_ambiguities[0]
+    indices = conflict["rule_indices"]
+    rules = " ↔ ".join(f"`[{i}]`" for i in indices)
+    spans = ", ".join(f"{asset.rules[i]['span']['start']}–{asset.rules[i]['span']['end']}" for i in indices)
+    row = next(line for line in section.splitlines() if line.startswith(f"- {rules}"))
+    assert f"({spans})" in row
+    assert conflict["description"] in row
 
 
 # ---------------------------------------------------------------------------
@@ -332,9 +351,12 @@ def test_disable_flag_skips_the_audit(monkeypatch, hr_profile: BotProfile) -> No
     assert not report.ran
     assert report.assets == []
 
-    section = render_instruction_audit_section(hr_profile)
-    assert "Not run" in section
-    assert "MCS_DISABLE_INSTRUCTION_AUDIT" in section
+    # The documented off switch skips the section entirely — no heading, no
+    # "Not run" note; that note is reserved for a missing dependency.
+    assert render_instruction_audit_section(hr_profile) == ""
+    activities = parse_dialog_json(HR_UAT / "dialog.json")
+    timeline = build_timeline(activities, {c.schema_name: c.display_name for c in hr_profile.components})
+    assert "## Instruction Audit (static)" not in render_report(hr_profile, timeline)
 
 
 def test_missing_dependency_degrades_instead_of_crashing(monkeypatch, hr_profile: BotProfile) -> None:
@@ -345,6 +367,7 @@ def test_missing_dependency_degrades_instead_of_crashing(monkeypatch, hr_profile
     assert report.assets == []
 
     section = render_instruction_audit_section(hr_profile)
+    assert "Not run" in section
     assert "rule-audit` is not installed" in section
     assert "## Instruction Audit (static)" in section
 
