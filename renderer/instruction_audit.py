@@ -184,8 +184,10 @@ def _render_asset(asset: AssetAudit) -> list[str]:
         lines.append("<details><summary>Conflicting rule text</summary>\n")
         body: list[str] = []
         for c in shown:
-            body.append(f"[{c.get('rule_a_index')}] {_sanitize_table_cell(c.get('rule_a_text', ''))}")
-            body.append(f"[{c.get('rule_b_index')}] {_sanitize_table_cell(c.get('rule_b_text', ''))}")
+            # Inside a fence, pipes and line breaks are literal — show the
+            # rule text exactly as rule-audit reported it.
+            body.append(f"[{c.get('rule_a_index')}] {c.get('rule_a_text', '')}")
+            body.append(f"[{c.get('rule_b_index')}] {c.get('rule_b_text', '')}")
             body.append("")
         lines.extend(_fence("\n".join(body).rstrip()))
         lines.append("\n</details>\n")
@@ -209,7 +211,8 @@ def _render_asset(asset: AssetAudit) -> list[str]:
         shown = asset.meta_paradoxes[:MAX_ROWS_PER_FAMILY]
         for m in shown:
             lines.append(
-                f"- `[{m.get('rule_index')}]` ({_text(m.get('paradox_type', '—'))}) {_text(m.get('description', ''))}"
+                f"- `[{m.get('rule_index')}]` ({_span(m, 'rule_span')})"
+                f" ({_text(m.get('paradox_type', '—'))}) {_text(m.get('description', ''))}"
             )
         lines.append("")
         lines.extend(_more(len(shown), len(asset.meta_paradoxes), "meta-paradoxes"))
@@ -219,7 +222,8 @@ def _render_asset(asset: AssetAudit) -> list[str]:
         shown = asset.absoluteness_issues[:MAX_ROWS_PER_FAMILY]
         for a in shown:
             lines.append(
-                f"- `[{a.get('rule_index')}]` ({_text(a.get('challenge_type', '—'))}) {_text(a.get('challenge', ''))}"
+                f"- `[{a.get('rule_index')}]` ({_span(a, 'rule_span')})"
+                f" ({_text(a.get('challenge_type', '—'))}) {_text(a.get('challenge', ''))}"
             )
         lines.append("")
         lines.extend(_more(len(shown), len(asset.absoluteness_issues), "absoluteness challenges"))
